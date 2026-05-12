@@ -1,13 +1,28 @@
 # 🏥 HARA — Hospital Autonomous Resource Allocation Agent
 
-An autonomous AI agent that manages hospital resources in real time using
-**Gemini AI · n8n · Flask · SQL Server · Streamlit**.
+An autonomous, AI-driven hospital management system designed to eliminate emergency room bottlenecks. HARA manages clinical triage, regional ambulance dispatching, and live resource allocation in real-time using **Gemini AI, n8n, Flask, SQL Server, and Streamlit**.
 
 ---
 
-## Architecture
+## 🚀 Project Vision
 
-```
+In high-stress medical environments, delays in triage and inefficient bed management cost valuable time. I built HARA to automate the logistical and preliminary clinical reasoning of hospital admissions. 
+
+By integrating an intelligent backend with a live hospital database, HARA evaluates patient vitals, active ward capacities, and staff availability to make instantaneous, transparent routing decisions. It transitions hospital operations from reactive to proactive, freeing up medical staff to focus on direct patient care.
+
+### Core Capabilities
+- **🧠 AI-Powered Clinical Triage:** Gemini analyzes symptoms and vitals to generate severity scores, first-aid steps, required imaging, and specialist referrals.
+- **🛏️ Autonomous Allocation:** A continuous n8n background cycle assigns waiting patients to the correct ward and staff member based on severity and live capacity.
+- **🚑 Smart Ambulance Dispatching:** An algorithmic routing engine scores regional hospitals based on distance, specialist availability, and bed counts to dispatch ambulances to the *right* facility, not just the closest one.
+- **📜 Transparent Auditing:** Every automated action—from trivial triage to critical ICU escalation—is recorded with its AI reasoning in an immutable decision log.
+
+---
+
+## 🗺️ System Architecture
+
+HARA is built on a distributed, multi-service architecture:
+
+```text
 ┌──────────────────┐     ┌──────────────────┐
 │  Streamlit       │     │  React Web App   │
 │  Clinical :8501  │     │  hara-web/       │
@@ -24,10 +39,7 @@ An autonomous AI agent that manages hospital resources in real time using
 ┌──────────────────────────────────────────┐
 │         SQL Server — HospitalDB          │
 │  12 tables: hospitals, wards, beds,      │
-│  patients, staff, imaging_machines,      │
-│  imaging_requests, ambulances,           │
-│  ambulance_dispatches, patient_vitals,   │
-│  inter_hospital_referrals, decisions_log │
+│  patients, staff, imaging_machines...    │
 └──────────────────────────────────────────┘
          ▲
          │ POST /api/run-cycle every 30s
@@ -35,18 +47,6 @@ An autonomous AI agent that manages hospital resources in real time using
 │   n8n  :5678     │
 │  Autonomous loop │
 └──────────────────┘
-```
-
----
-
-## Hospitals
-
-| Hospital | Location | Role |
-|---|---|---|
-| National Hospital of Sri Lanka | Colombo (6.9271, 79.8612) | Main |
-| Colombo South Teaching Hospital | Kalubowila (6.8561, 79.8741) | Partner |
-
----
 
 ## Setup — Step by Step
 
@@ -121,103 +121,3 @@ n8n start
 ```
 Opens: http://localhost:5678
 → Import `n8n_workflow.json` → Activate
-
----
-
-## Docker (alternative to manual setup)
-
-```bash
-copy .env.example .env   # fill in your Gemini key
-docker-compose up --build
-```
-
-| Service | URL |
-|---|---|
-| Flask API | http://localhost:5001 |
-| Clinical Streamlit | http://localhost:8501 |
-| Ops Streamlit | http://localhost:8502 |
-| n8n | http://localhost:5678 |
-
-> SQL Server stays on your laptop. Docker containers connect via `host.docker.internal`.
-
----
-
-## Streamlit Dashboards
-
-### Clinical (app.py — port 8501)
-For doctors and nurses:
-- **Dashboard** — Live patient table, ward occupancy, staff availability chart, discharge
-- **Triage & Intake** — Register patient with optional vitals (temp/BP/HR/SpO₂/height/weight/BMI), Gemini produces full triage report with first aid, medicines, specialist referral, imaging needed, nurse instructions
-- **Patient Queue** — Waiting patients with triage summaries, manual allocation trigger
-- **Resource Control** — Adjust bed counts per ward, toggle staff availability
-- **Agent Log** — Full audit trail of every AI decision with reasoning
-
-### Operations (ops.py — port 8502)
-For admin and dispatch:
-- **Ambulance Dispatch** — AI routing engine scores every hospital simultaneously (distance + specialist + imaging + beds), dispatches to best match, shows comparison table
-- **Imaging Control** — Toggle each machine on/off, view imaging requests, manually request scans
-- **Hospital Network** — Both hospitals overview, imaging availability grid, distance matrix, ambulance fleet
-- **Referrals** — Inter-hospital referral log
-
----
-
-## Key API Endpoints
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/api/health` | Health check |
-| GET | `/api/hospitals` | Both hospitals with full status |
-| GET | `/api/status` | Ward + staff snapshot |
-| POST | `/api/patients/add` | Register new patient |
-| POST | `/api/triage` | Gemini triage with optional vitals |
-| POST | `/api/run-cycle` | Autonomous allocation cycle |
-| POST | `/api/ambulance/dispatch` | Smart ambulance routing |
-| POST | `/api/imaging/machines/{id}/toggle` | Toggle machine availability |
-| GET | `/api/decisions` | Agent decision log |
-| GET | `/api/debug` | Database + Gemini health check |
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| AI | Google Gemini 2.0 Flash (with rule-based fallback) |
-| Orchestration | n8n (self-hosted, free) |
-| Backend | Flask + Flask-CORS |
-| Database | SQL Server via SQLAlchemy + pyodbc |
-| Frontend 1 | Streamlit (clinical) |
-| Frontend 2 | Streamlit (operations) |
-| Frontend 3 | React + Tailwind (hara-web/) |
-| Containers | Docker + docker-compose |
-| Language | Python 3.12 |
-
----
-
-## Severity Scale
-
-| Level | Label | Ward | Staff |
-|---|---|---|---|
-| 5 | Critical | ICU | Surgeon |
-| 4 | Serious | Emergency | ER Doctor |
-| 3 | Moderate | Emergency / General | Doctor |
-| 2 | Minor | General | Nurse |
-| 1 | Trivial | General | Nurse |
-
----
-
-## Ambulance Routing Score
-
-The routing engine scores each hospital with:
-```
-score = distance_km
-      + 50  (if required specialist unavailable)
-      + 30  (if required imaging unavailable)
-      + 100 (if no beds available)
-```
-Lower score = better hospital. The ambulance is dispatched to the lowest-scoring hospital.
-
----
-
-*Built for KDU — BSc Applied Data Science Communication — Assignment II*
-*HARA v5 — Intake 41, 3rd Year 1st Semester, LB3114*
