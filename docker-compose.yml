@@ -1,0 +1,81 @@
+version: "3.9"
+
+# SQL Server stays on your laptop — containers reach it via host.docker.internal
+# In your .env: SQL_SERVER=host.docker.internal
+
+services:
+
+  flask-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: hara-api
+    ports:
+      - "5001:5001"
+    env_file: .env
+    environment:
+      SQL_SERVER: host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  streamlit-clinical:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: hara-clinical
+    ports:
+      - "8501:8501"
+    env_file: .env
+    environment:
+      SQL_SERVER: host.docker.internal
+      STREAMLIT_APP: app.py
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      flask-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  streamlit-ops:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: hara-ops
+    ports:
+      - "8502:8501"
+    env_file: .env
+    environment:
+      SQL_SERVER: host.docker.internal
+      STREAMLIT_APP: ops.py
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      flask-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: hara-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+volumes:
+  n8n_data:

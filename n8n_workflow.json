@@ -1,0 +1,148 @@
+{
+  "name": "HARA - Hospital Autonomous Resource Allocation Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "seconds", "secondsInterval": 30 }] }
+      },
+      "id": "node-schedule",
+      "name": "Every 30 Seconds",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:5001/api/status",
+        "options": {}
+      },
+      "id": "node-status",
+      "name": "Get Hospital Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:5001/api/patients/waiting",
+        "options": {}
+      },
+      "id": "node-waiting",
+      "name": "Get Waiting Patients",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [{
+            "id": "cond-1",
+            "leftValue": "={{ $json.count }}",
+            "rightValue": 0,
+            "operator": { "type": "number", "operation": "gt" }
+          }],
+          "combinator": "and"
+        }
+      },
+      "id": "node-if",
+      "name": "Any Patients Waiting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [760, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5001/api/run-cycle",
+        "options": {}
+      },
+      "id": "node-cycle",
+      "name": "Run AI Allocation Cycle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [980, 180]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:5001/api/decisions?limit=5",
+        "options": {}
+      },
+      "id": "node-decisions",
+      "name": "Fetch Latest Decisions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 180]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "cycleResult", "value": "={{ $('Run AI Allocation Cycle').item.json.message }}", "type": "string" },
+            { "id": "a2", "name": "timestamp",   "value": "={{ $now }}", "type": "string" }
+          ]
+        }
+      },
+      "id": "node-set",
+      "name": "Log Cycle Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1420, 180]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a3", "name": "status", "value": "idle", "type": "string" }
+          ]
+        }
+      },
+      "id": "node-idle",
+      "name": "No Action Needed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [980, 420]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-patient",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook: New Patient",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 560],
+      "webhookId": "hara-new-patient"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5001/api/run-cycle",
+        "options": {}
+      },
+      "id": "node-webhook-cycle",
+      "name": "AI Cycle on New Patient",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [320, 560]
+    }
+  ],
+  "connections": {
+    "Every 30 Seconds":        { "main": [[{ "node": "Get Hospital Status",      "type": "main", "index": 0 }]] },
+    "Get Hospital Status":     { "main": [[{ "node": "Get Waiting Patients",     "type": "main", "index": 0 }]] },
+    "Get Waiting Patients":    { "main": [[{ "node": "Any Patients Waiting?",    "type": "main", "index": 0 }]] },
+    "Any Patients Waiting?":   { "main": [
+      [{ "node": "Run AI Allocation Cycle", "type": "main", "index": 0 }],
+      [{ "node": "No Action Needed",        "type": "main", "index": 0 }]
+    ]},
+    "Run AI Allocation Cycle": { "main": [[{ "node": "Fetch Latest Decisions",  "type": "main", "index": 0 }]] },
+    "Fetch Latest Decisions":  { "main": [[{ "node": "Log Cycle Summary",       "type": "main", "index": 0 }]] },
+    "Webhook: New Patient":    { "main": [[{ "node": "AI Cycle on New Patient",  "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "id": "hara-hospital-agent",
+  "tags": []
+}
